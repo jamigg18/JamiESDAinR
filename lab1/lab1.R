@@ -101,7 +101,6 @@ d.counties$STATEFP10[81]
 d.counties$STATEFP10[18]
 ###subsetting NY and finding county area average
 nycounties <- d.counties %>% dplyr::filter(STATEFP10 == 36)
-nycounties %>% mean(Shape_Area)
 mean(nycounties$Shape_Area)
 ##which state has monitoring stations with the greatest avg drainage area
 which(d.stations$Drainage_A == max(d.stations$Drainage_A))                                
