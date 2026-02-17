@@ -48,7 +48,7 @@ glimpse(d.counties$percentLandA)
 ##which county has the most water per land in each state
 d.counties %>% dplyr::slice_max(AWATER10/statelandarea)
 ##how many counties in each state (how many rows/obs does each state have)
-d.counties %>% count(.,STATEFP10) #HELP
+d.counties %>% count(.,STATEFP10)
 ##which station has the shortest name
 d.stations %>% dplyr::slice_min(STATION_NA)
 
@@ -66,16 +66,13 @@ ggplot(d.stations, aes(x=Drainage_A))+
   ylab("area of drainage")+
   ggtitle("Station Drainage Area")
 ##again but color by state
-
-
-ggplot(intersection, aes(x=Drainage_A,fill=STATEFP10))+
+library(tidyr)
+d.stations <- d.stations %>% separate(col = STATION_NA, into = c("STATION_na", "STATE"), sep = -2)
+ggplot(d.stations, aes(x=Drainage_A,fill=STATE))+
   geom_histogram()+
   xlab("number of stations")+
   ylab("area of drainage")+
   ggtitle("Station Drainage Area")
-
-
-#####extract last two characters of string in name column and mutate into new column and use that
 
 #Task 3: write a function
 taskfunct <- function(c) {
@@ -93,7 +90,7 @@ taskfunct(c("a","b","c"))
 
 #Task4: a more complex spatial analysis
 ##number of stations per state
-d.stations %>% count(STAID) #??
+d.stations %>% count(STATE)
 ## calc avg county size in NY
 ###finding which stateID is NY
 which(d.counties$NAME10 == "Broome")
@@ -107,12 +104,8 @@ nycounties <- d.counties %>% dplyr::filter(STATEFP10 == 36)
 nycounties %>% mean(Shape_Area)
 mean(nycounties$Shape_Area)
 ##which state has monitoring stations with the greatest avg drainage area
-#is this asking which state has the greatest avg drainA
-d.stations <- d.stations %>% group_by(STAID) %>% mutate(drainAavg = mean(Drainage_A))
-d.stations %>% dplyr::slice_max(drainAavg)
-which(d.stations$drainAavg == max(d.stations$drainAavg))                                               
-d.stations$STAID[28]
-#how do I find which state this is, intersecting?
+which(d.stations$Drainage_A == max(d.stations$Drainage_A))                                
+d.stations$STATE[28]
 
 #Questions
 del.stations <- sf::st_intersection(d.stations, del.counties)

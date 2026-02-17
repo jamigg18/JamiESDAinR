@@ -3,7 +3,7 @@
     "path": "C:/Users/jamig/OneDrive/Kent State/skool/spring 26/EnvironmentalDataAnalysisR/JamiESDAinR/lab1/lab1.R",
     "project_path": "lab1.R",
     "type": "r_source",
-    "hash": "0",
+    "hash": "3786768134",
     "contents": "",
     "dirty": false,
     "created": 1770306382389.0,
@@ -13,15 +13,15 @@
         "tempName": "Untitled1",
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "51,0",
-        "scrollLine": "39"
+        "cursorPosition": "109,0",
+        "scrollLine": "99"
     },
     "folds": "",
-    "lastKnownWriteTime": 1771339003,
+    "lastKnownWriteTime": 1771347621,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1771339003112,
+    "last_content_update": 1771347621901,
     "read_only": false,
     "read_only_alternatives": []
 }
