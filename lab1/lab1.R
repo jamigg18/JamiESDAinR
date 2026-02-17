@@ -4,7 +4,7 @@ library(ggplot2)
 library(sf)
 p.counties <- "./County_Boundaries.shp"
 p.stations <- "./Non-Tidal_Water_Quality_Monitoring_Stations_in_the_Chesapeake_Bay.shp"
-d.counties <- sf::read_sf(p.counties)
+d.counties <- sf::read_sf(p.counties) %>% st_make_valid()
 d.stations <- sf::read_sf(p.stations)
 glimpse(d.counties)
 glimpse(d.stations)
@@ -66,11 +66,16 @@ ggplot(d.stations, aes(x=Drainage_A))+
   ylab("area of drainage")+
   ggtitle("Station Drainage Area")
 ##again but color by state
-ggplot(d.stations, aes(x=Drainage_A,fill=STAID))+
+
+
+ggplot(intersection, aes(x=Drainage_A,fill=STATEFP10))+
   geom_histogram()+
   xlab("number of stations")+
   ylab("area of drainage")+
   ggtitle("Station Drainage Area")
+
+
+#####extract last two characters of string in name column and mutate into new column and use that
 
 #Task 3: write a function
 taskfunct <- function(c) {
