@@ -188,25 +188,16 @@ counties$NAME10
 bmps1 <- bmps %>% separate(col = Geography, into = c("county","where"), sep = ",")
 bmps1$county
 
-#join 
-county.bmp <- left_join(counties, bmps1, by = c("NAME10" = "county"))
+#group cost by county before the join
+bmps2 <- bmps1 %>% group_by(county) %>% summarise(CountyCost = sum(Cost, na.rm=T))
+glimpse(bmps2)
 
-glimpse(county.bmp)
-county.bmp %>% select(NAME10, Cost)
-
-simple <- county.bmp %>% select(NAME10, Shape_Leng, Shape_Area, geometry, Cost)
-glimpse(simple)
-
-#group by county
-county.cost <- county.bmp %>% group_by(NAME10) %>% summarise(CountyCost = sum(Cost, na.rm=T))
-
-county.bmp %>% group_by(NAME10) %>% summarise(CountyCost = sum(Cost, na.rm=T))
+#join
+county.bmp2 <- left_join(counties, bmps2, by = c("NAME10" = "county"))
+glimpse(county.bmp2)
 
 #map
-counties %>% tm_shape() + tm_polygons(fill="CountyCost")
-
-counties %>% tm_shape() + tm_polygons()
-county.bmp %>% tm_shape() + tm_polygons() #DONT
+county.bmp2 %>% tm_shape() + tm_polygons(fill = "CountyCost")
 
 
 ```
