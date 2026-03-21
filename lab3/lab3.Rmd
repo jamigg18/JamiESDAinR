@@ -1,0 +1,17 @@
+---
+title: "Lab3"
+author: "Jami Greb"
+date: "2026-03-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Getting started
+
+```{r}
+
+```
+

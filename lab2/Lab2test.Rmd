@@ -1,0 +1,236 @@
+---
+title: "Lab2"
+author: "Jami Greb"
+date: "2026-02-25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Lab 2: working through examples
+
+```{r}
+library(tidyverse)
+library(sf)
+library(tmap)
+streams <- sf::read_sf("./CBW/Streams_Opened_by_Dam_Removal_2012_2017.shp") %>% sf::st_make_valid()
+dams <- sf::read_sf("./CBW/Dam_or_Other_Blockage_Removed_2012_2017.shp") %>% sf::st_make_valid()
+counties <- sf::read_sf("./CBW/County_Boundaries.shp") %>% sf::st_make_valid()
+
+t.names <- tibble(key = c(1,2,3), name = c("huey","dewey","louis"))
+t.scores <- tibble(name = c("louis","huey","dewey"), grade = c(99,45,33))
+t.joined <- left_join(t.names, t.scores, by = "name")
+t.wnames <- tibble(nombre = c("dewey","louis","huey"), x = rep(999), food = c("banana","apple","carrot"))
+t.joined2 <- left_join(t.names, t.wnames, by = c("name" = "nombre"))
+
+bmps <- read_csv("./CBW/BMPreport2016_landbmps.csv")
+glimpse(bmps)
+bmps <- bmps %>% mutate(.,FIPS.trimmed = stringr::str_sub(GeographyName, 1, 5))
+bmps %>% group_by(BMPType) %>% summarise(totalCost=sum(Cost)) %>%
+  ggplot(.,aes(x=BMPType, y=totalCost)) +
+  geom_bar(stat = "identity")+ theme_minimal()
+summary(bmps$Cost)
+bmps %>% group_by(BMPType) %>% summarise(totalCost=sum(Cost, na.rm = T)) %>%
+  ggplot(.,aes(x=BMPType, y=totalCost)) +
+  geom_bar(stat = "identity")+ theme_minimal()
+
+twofac <- bmps %>% group_by(StateAbbreviation, Sector) %>% summarise(totalCost = sum(Cost))
+twofac
+
+bmps %>% ggplot(.,aes(x=StateAbbreviation, y=AmountCredited)) +
+  geom_boxplot(aes(fill = StateAbbreviation))
+bmps %>% dplyr::filter(., AmountCredited > 1 & AmountCredited < 100) %>%
+  ggplot(.,aes(x=StateAbbreviation, y=AmountCredited)) +
+  geom_boxplot(aes(fill = StateAbbreviation))
+bmps %>% dplyr::filter(., AmountCredited > 1 & AmountCredited < 100) %>%
+  ggplot(.,aes(x=StateAbbreviation, y=AmountCredited)) +
+  geom_boxplot(aes(fill = StateAbbreviation)) +
+  facet_grid(Sector~.)
+bmps %>% 
+  ggplot(.,aes(x=StateAbbreviation, y=AmountCredited)) +
+  geom_boxplot(aes(fill = StateAbbreviation)) +
+  scale_y_log10() + labs(y="log10(AmountCredited")
+
+x <- c(1,2,3,4,5)
+7 %in% x
+2 %in% x
+c (4,99,1) %in% x
+
+counties %>% sf::st_is_valid()
+counties <- counties %>% sf::st_make_valid()
+tm_shape(counties) + tm_polygons(fill = "ALAND10")
+
+
+```
+
+##Starting the lab
+
+```{r}
+
+library(tidyverse)
+library(sf)
+library(tmap)
+streams <- sf::read_sf("./CBW/Streams_Opened_by_Dam_Removal_2012_2017.shp") %>% sf::st_make_valid()
+dams <- sf::read_sf("./CBW/Dam_or_Other_Blockage_Removed_2012_2017.shp") %>% sf::st_make_valid()
+counties <- sf::read_sf("./CBW/County_Boundaries.shp") %>% sf::st_make_valid()
+bmps <- read_csv("./CBW/BMPreport2016_landbmps.csv")
+
+glimpse(streams)
+glimpse(dams)
+glimpse(counties)
+
+
+```
+
+##Task 1
+#1.1
+```{r}
+glimpse(bmps)
+summary(bmps$Cost)
+# min cost per state
+bmps %>% group_by(StateAbbreviation) %>% summarise(costStat = mean(Cost, na.rm=T))
+# mean cost per state
+bmps %>% group_by(StateAbbreviation) %>% summarise(costStat = min(Cost, na.rm=T))
+#median cost per state
+bmps %>% group_by(StateAbbreviation) %>% summarise(costStat = median(Cost, na.rm=T))
+#max cost per state
+bmps %>% group_by(StateAbbreviation) %>% summarise(costStat = max(Cost, na.rm=T))
+ 
+
+```
+
+#1.2
+```{r}
+bmps %>% dplyr::filter(str_detect(Unit, "Acres")) %>% 
+  ggplot(.,aes(x=TotalAmountCredited, y=Cost)) +
+  geom_point() + theme_classic() +
+  labs(x="Total Amount Credited", y="Cost")
+
+```
+
+#1.3
+```{r}
+
+bmps %>% dplyr::filter(str_detect(BMP, "Cover Crop")) %>% 
+  ggplot(.,aes(x=StateAbbreviation, y=TotalAmountCredited)) +
+  geom_boxplot(aes(fill = StateAbbreviation)) + theme_classic() +
+  scale_y_log10() + labs(y="log10(total amount credited")
+
+```
+
+#1.4
+```{r}
+dams %>% dplyr::filter(., YEAR > 1) %>%
+  ggplot(.,aes(x=YEAR, y=STATE)) +
+  geom_point(color = "blue4") + theme_minimal()
+
+
+```
+
+#1.5
+```{r}
+
+#Grouping bmp cost and dam height by state name so I can join as a one to one
+StateCost <- bmps %>% group_by(StateAbbreviation) %>% summarise(avgcost = mean(Cost, na.rm=T))
+DamHeight <- dams %>% group_by(STATE) %>% summarise(avgheight = mean(HEIGHT, na.rm=T))
+StateCost
+DamHeight
+
+#joining
+dams.statecost <- left_join(DamHeight, StateCost, by= c("STATE"="StateAbbreviation"))
+dams.statecost
+
+#plotting to see any correlation between avg bmp cost and dam height within states
+dams.statecost %>%
+  ggplot(., aes(x=avgheight, y=avgcost, color=STATE)) +
+  geom_point(size=3) + theme_minimal() +
+  labs(title = "Dam Height and Sediment Reduction Cost", subtitle = "In Maryland, Pennsylvania, and Virgina", x="Average dam height", y="Average managment cost")
+
+```
+
+##Task 2
+#2.1
+```{r}
+glimpse(streams)
+streams %>% dplyr::select(GNIS_Name, LengthKM) %>% dplyr::slice_max(LengthKM,n=5)
+
+```
+
+#2.2
+```{r}
+glimpse(streams)
+glimpse(counties)
+st_crs(counties)==st_crs(streams)
+
+#join counties and streams
+county.streams <- st_join(streams, counties)
+
+#the three counties with the greatest total stream length
+county.streams.length <- county.streams %>% group_by(COUNTYFP10) %>% summarise(TotalStreamLength = sum(LengthKM, na.rm=T)) %>% dplyr::slice_max(TotalStreamLength, n=3)
+
+county.streams.length
+
+
+```
+
+#2.3
+
+```{r}
+
+glimpse(counties)
+glimpse(bmps)
+bmps$Geography
+counties$NAME10
+
+#make new column of just what comes before comma in Geography
+bmps1 <- bmps %>% separate(col = Geography, into = c("county","where"), sep = ",")
+bmps1$county
+
+#group cost by county before the join
+bmps2 <- bmps1 %>% group_by(county) %>% summarise(CountyCost = sum(Cost, na.rm=T))
+glimpse(bmps2)
+
+#join
+county.bmp2 <- left_join(counties, bmps2, by = c("NAME10" = "county"))
+glimpse(county.bmp2)
+
+#map
+county.bmp2 %>% tm_shape() + tm_polygons(fill = "CountyCost")
+
+
+```
+
+#2.4
+```{r}
+glimpse(dams)
+glimpse(streams)
+st_crs(dams)==st_crs(streams)
+
+# making distance matrix
+distances <- st_distance(dams, streams)
+dim(distances)
+distances[1:3,1:3]
+
+# finding the smallest distance in each row
+dams$dist <- apply(distances, 1, which.min)
+dams$dist
+dams %>% select(DAM_NAME, dist) %>% glimpse()
+
+#finding the stream thats the smallest distance to each dam
+close.stream <- dams$dist %>% streams[.,] %>% select(GNIS_Name)
+close.stream
+closest <- tibble(dam = dams$DAM_NAME, closest.stream = close.stream)
+closest
+
+
+```
+
+#2.5
+```{r}
+
+dams %>% group_by(STATE) %>% count()
+
+```
+

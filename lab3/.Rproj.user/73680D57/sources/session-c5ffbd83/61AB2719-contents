@@ -1,0 +1,26 @@
+---
+title: "Lab3"
+author: "Jami Greb"
+date: "2026-03-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Getting started
+
+```{r}
+
+library(tidyverse)
+library(sf)
+library(tmap)
+streams <- sf::read_sf("./CBW/Streams_Opened_by_Dam_Removal_2012_2017.shp") %>% sf::st_make_valid()
+dams <- sf::read_sf("./CBW/Dam_or_Other_Blockage_Removed_2012_2017.shp") %>% sf::st_make_valid()
+counties <- sf::read_sf("./CBW/County_Boundaries.shp") %>% sf::st_make_valid()
+bmps <- read_csv("./CBW/BMPreport2016_landbmps.csv")
+
+
+```
+
