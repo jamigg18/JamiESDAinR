@@ -1,0 +1,176 @@
+---
+title: "Lab3"
+author: "Jami Greb"
+date: "2026-03-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Getting started
+
+```{r}
+library(spdep)
+library(tidycensus)
+library(sf)
+library(tidyverse)
+library(tmap)
+
+```
+
+
+## working through example
+
+```{r}
+
+options(tigris_use_cache = TRUE)
+d.all <- get_acs(geography = "county", table = "B15003", output = "wide", geometry = T, year = 2020)
+glimpse(d.all)
+df.vars <- load_variables(2020, "acs5", cache = T)
+glimpse(df.vars)
+
+#finding variable that corresponds to female pop estimate with age 75-79
+df.vars %>% dplyr::filter(concept == "SEX BY AGE") %>%
+  dplyr::filter(str_detect(label, "Female")) %>%
+  dplyr::filter(str_detect(label, "75"))
+
+sex.by.age <- get_acs(geography = "county", table = "B01001", output = "wide", geometry = T, year = 2020)
+glimpse(sex.by.age)
+
+#getting ohio data
+ohio <- sex.by.age %>% mutate(., STATEID = stringr::str_sub(GEOID,1,2)) %>% dplyr::filter(STATEID == "39")
+glimpse(ohio)
+tmap::tm_shape(ohio) + tm_polygons()
+
+#project
+sf::st_crs(ohio)
+ohio.proj <- ohio %>% sf::st_transform(., "ESRI:102010")
+tmap::tm_shape(ohio.proj) + tm_polygons()
+
+#making neighborhood
+nb <- spdep::poly2nb(ohio.proj, queen = TRUE)
+nb
+nb[1] #shows the polygon ids for county 1's neighbors
+ohio.proj$NAME[1] #name of county
+nb[[1]] %>% ohio.proj$NAME[.] #basically last two steps together
+
+#assigning weights
+lw <- spdep::nb2listw(nb, style = "W", zero.policy = TRUE)
+lw$weights[1]
+
+#count of neighbors
+neighbors <- attr(lw$weights, "comp")$d
+hist(neighbors)
+
+#computing avg neighbor pop of F75 for each county(polygon) aka spatial lagged values
+f75 <- lag.listw(lw, ohio.proj$B01001_047E)
+f75  
+  
+#computing Moran's I
+moran.test(ohio.proj$B01001_047E, lw)
+#plot
+moran.plot(ohio.proj$B01001_047E, lw, zero.policy = TRUE, plot = TRUE)
+  
+
+```
+
+## Tasks
+
+```{r}
+
+#1. making subset with 5 states: OH, PA, MD, WV, VA (39, 42, 24, 54, 51)
+sex.by.age <- get_acs(geography = "county", table = "B01001", output = "wide", geometry = T, year = 2020)
+some.states <- sex.by.age %>% mutate(., STATEID = stringr::str_sub(GEOID,1,2)) %>% dplyr::filter(STATEID %in% c("39","42","24","54","51"))
+glimpse(some.states)
+
+#project
+local.states <- some.states %>% sf::st_transform(., "ESRI:102010")
+tmap::tm_shape(local.states) + tm_polygons() #map
+
+
+#2. choosing a variable: 21 year old females
+df.vars <- load_variables(2020, "acs5", cache = T)
+df.vars
+df.vars %>% dplyr::filter(concept == "SEX BY AGE") %>%
+  dplyr::filter(str_detect(label, "Female")) %>%
+  dplyr::filter(str_detect(label, "21"))
+
+
+#3. visualize the variable with histogram
+ggplot(local.states, aes(x=B01001_033E))+
+  geom_histogram(color="black", fill = "magenta3")+
+  theme_minimal() + labs(title ="Population size of 21 year old females across counties", subtitle = "in OH, PA, MD, WV, & VA" , x = "Number of 21 year old females", y = "Number of counties")
+
+
+#4. Choropleth map of proportion of 21 year old females (033) to total female population (026)
+#normalizing
+local.states2 <- local.states %>% mutate(., f21prop = B01001_033E/B01001_026E)
+#mapping
+tm_shape(local.states2) + tm_polygons(fill = "f21prop")
+
+
+#5. Developing contiguity-based spatial weights matrix (queen)
+#row-standardize the W
+nbh <- spdep::poly2nb(local.states2, queen = TRUE)
+w <- spdep::nb2listw(nbh, style = "W", zero.policy = TRUE)
+w$weights[1]
+
+#plot histogram of number of neighbors
+Qneighbors <- attr(w$weights, "comp")$d #counts
+hist(Qneighbors)
+
+#calculate average number of neighbors
+mean(Qneighbors)
+
+#make Moran plot
+moran.plot(local.states2$B01001_033E, w, zero.policy = TRUE, plot = TRUE)
+
+
+#6. Repeat with IDW method
+#assign weights
+nbh <- spdep::poly2nb(local.states2, queen = TRUE)
+idw <- spdep::nb2listwdist(nbh, sex.by.age, type = "idw", zero.policy = TRUE)
+idw$weights[1]
+
+#plot histogram of number of neighbors
+idwneighbors <- attr(w$weights, "comp")$d
+hist(idwneighbors)
+
+#calculate average number of neighbors
+mean(idwneighbors)
+
+#make Moran plot
+moran.plot(local.states2$B01001_033E, idw, zero.policy = TRUE, plot = TRUE)
+
+
+```
+
+
+##Questions
+
+1. Moran's I is calculated by subtracting values of two nearby locations by the average of all locations and multitplying them to evaluate of locations near each other have values similar to each other. 
+
+2. A spatially-lagged variable is a variable that changed more the farther away it is from a location.
+
+3. The Moran plot for the idw method appears to have a stronger positive autocorrelation. It is apparent that the chosen method alters the extent of the outcome, which makes sense as in the first method, all neighbors were simply neighbors, whereas in the second method, some neighbors were more "neighbor-y" than others. This means that the neighbors valued as closer would be expected to have a more similar variable value than the other, which directly affects the spatial autocorrelation analysis. 
+
+4. An observation in the "H-L" quadrant has an above average value but is surrounded by values below average and is therefore likely an outlier (which is why looking in the "H-L" quadrant is useful, because you want to detect outliers. 
+
+
+##Bonus
+
+```{r}
+
+#finding spatial lag
+f21 <- lag.listw(w, local.states2$B01001_033E)
+#plotting
+ggplot(local.states2, aes(x=B01001_033E, y=f21)) +
+  geom_point() + geom_abline() + theme_minimal()
+#I think this code is the first step to testing if observations are significant
+moran.test(local.states2$B01001_033E, w)
+#but that's as far as I got
+
+
+```
