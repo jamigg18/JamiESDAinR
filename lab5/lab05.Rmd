@@ -269,7 +269,7 @@ dem_layer
   
 map_local_elev <- dem_layer + park_feats + streams +
   tm_scalebar(position = c("center", "bottom")) + 
-  tm_compass(type = "8star", position = c("right", "bottom"))
+  tm_compass(type = "8star", position = c("right", "bottom")) + tm_title("Map of Elevation, Parks, and Streams in Ohio's Summit and and Portange Counties")
 
 map_local_elev
 
@@ -363,7 +363,7 @@ ins_vp <- viewport(
 
 grid.newpage()
 print(map_local_elev, vp = main_vp)
-pushViewport(main_vp)
+#pushViewport(main_vp)
 print(map_inset, vp = ins_vp)
 
 
@@ -376,6 +376,8 @@ Your first attempt will not look perfect — that is expected and intentional. Y
 - Add a title using `tm_title()` or `tm_layout(title = ...)` to `map_local_elev`
 
 *Note: Getting the position right requires iterating. Try different values for the scale factor (e.g., `0.3`, `0.5`) and the margin. A scale factor around `0.35–0.45` and bottom-right or bottom-left placement usually works well for this study area.*
+
+
 
 **Reflection question 4 (answer in your repo):** In your own words, explain what `norm_dim()` is doing and why it is necessary. What specific visual problem would occur if you skipped that step and passed the raw coordinate extents to `viewport()` directly?
 

@@ -3,7 +3,7 @@
     "path": "C:/Users/jamig/OneDrive/Kent State/skool/spring 26/EnvironmentalDataAnalysisR/JamiESDAinR/lab5/lab05.Rmd",
     "project_path": "lab05.Rmd",
     "type": "r_markdown",
-    "hash": "0",
+    "hash": "2676067808",
     "contents": "",
     "dirty": false,
     "created": 1775744538526.0,
@@ -12,15 +12,15 @@
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "368,0",
-        "scrollLine": "357"
+        "cursorPosition": "369,0",
+        "scrollLine": "361"
     },
     "folds": "",
-    "lastKnownWriteTime": 1776215058,
+    "lastKnownWriteTime": 1776267692,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1776215058777,
+    "last_content_update": 1776267692616,
     "read_only": false,
     "read_only_alternatives": []
 }
