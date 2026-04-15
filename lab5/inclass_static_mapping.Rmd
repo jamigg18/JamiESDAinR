@@ -368,7 +368,7 @@ tmap_arrange(ma1, ma2, ma3, ma4, ma5, ma6)
 Everything above used New Zealand example data. Let's switch to our course data before the activity — just to make sure the data loads and looks right.
 
 ```{r}
-allohio <- sf::read_sf("../data/static_mapping/oh_counties.gpkg")
+allohio <- sf::read_sf("./data/static_mapping/oh_counties.gpkg")
 sa <- allohio %>% dplyr::filter(NAME %in% c("Portage", "Summit"))
 ```
 
@@ -383,8 +383,8 @@ tm_shape(allohio) + tm_polygons() +
 Load and prep the DEM for the study area. We project it first (so units are consistent with our vector data), then crop to reduce the memory footprint:
 
 ```{r}
-myras <- rast("../data/static_mapping/neoh_dem.tif") %>%
-  terra::project(., sf::st_crs(sa)$wkt) %>%. # note that terra uses "project" instead of "transform"
+myras <- rast("./data/static_mapping/neoh_dem.tif") %>%
+  terra::project(., sf::st_crs(sa)$wkt) %>% # note that terra uses "project" instead of "transform"
   terra::crop(., sa)
 ```
 
