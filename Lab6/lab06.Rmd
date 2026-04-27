@@ -45,6 +45,10 @@ library(sf)
 library(leaflet)
 library(tidyverse)
 library(spdep)   # needed for Task 2 (Moran/LISA)
+library(tidycensus) #for task 2
+library(rgeoda) #for finding lisa p-vals
+library(terra) #for task 3
+
 ```
 
 *Note: You may need additional packages depending on your Task 3 choices. Load them here.*
@@ -64,7 +68,30 @@ Go back to your Lab 2 code and reload the county geometry and BMP cost data. Per
 Before mapping, **check and set the CRS**. Leaflet requires geographic coordinates (WGS 84, EPSG 4326). If your data are in a projected CRS, reproject now using `sf::st_transform(counties_bmp, 4326)`.
 
 ```{r task1_data, echo=TRUE, message=TRUE}
-# your code here
+
+counties <- sf::read_sf("./data/CBW/County_Boundaries.shp") %>% sf::st_make_valid()
+bmps <- read_csv("./data/CBW/BMPreport2016_landbmps.csv")
+
+glimpse(counties)
+glimpse(bmps)
+bmps$Geography
+counties$NAME10
+
+#make new column of just what comes before comma in Geography
+bmps1 <- bmps %>% separate(col = Geography, into = c("county","where"), sep = ",")
+bmps1$county
+
+#group cost by county before the join
+bmps2 <- bmps1 %>% group_by(county) %>% summarise(CountyCost = sum(Cost, na.rm=T))
+glimpse(bmps2)
+
+#join
+counties_bmp <- left_join(counties, bmps2, by = c("NAME10" = "county"))
+glimpse(counties_bmp)
+
+st_crs(counties_bmp)
+
+
 ```
 
 ### 1.2 — Define a color palette
@@ -75,9 +102,14 @@ Leaflet's `colorBin()` function creates a color palette from a set of breaks. Yo
 
 ```{r task1_palette, echo=TRUE, message=TRUE}
 # define breaks and palette here
-# example structure:
-# breaks <- seq(min(...), max(...), length.out = 6)  # 5 classes = 6 break points
-# pal <- colorBin(palette = "...", domain = ..., bins = breaks)
+
+min(counties_bmp$CountyCost, na.rm = TRUE)
+max(counties_bmp$CountyCost, na.rm = TRUE)
+
+breaks <- seq(min(181.2445), max(161575828), length.out = 6)
+
+costcolors <- colorBin(palette = "PuRd", domain = counties_bmp$CountyCost, bins = breaks)
+
 ```
 
 *Requirement: Do NOT use the default color scheme (Blues). Choose a palette appropriate for sequential data from a source like ColorBrewer.*
@@ -92,10 +124,22 @@ Build the Leaflet map with the following requirements:
 - A basemap tile layer using `addProviderTiles()` — choose something other than the default OpenStreetMap. Browse options at https://leaflet-extras.github.io/leaflet-providers/preview/
 
 ```{r task1_map, echo=TRUE, message=TRUE}
-# your code here
+
+leaflet(data = counties_bmp) %>% 
+  setView(lng = -76.5, lat = 40.5, zoom = 5) %>% 
+  addTiles() %>%
+  addPolygons(., fillColor = ~costcolors(CountyCost), 
+    weight = 1, color = "black", fillOpacity = 0.8, 
+    label = ~paste0(NAME10, ": ", CountyCost)) %>%
+  addLegend(position = "bottomright", pal = costcolors, values =  costcolors, title = "Cost of BMPs") %>%
+  addProviderTiles(providers$CartoDB.Voyager)
+
 ```
 
 **Reflection question 1 (answer in your repo):** In `tmap`, classification method choices (jenks, quantile, etc.) are made when you call `tm_polygons()`. In Leaflet, you define the palette and breaks separately using `colorBin()`, `colorQuantile()`, or `colorNumeric()`. What are the trade-offs of this approach? Does separating the palette from the geometry layer give you more or less flexibility? Give a specific example.
+
+While it's nice to define your own breaks for the colorBin function, it is also nice to call specific methods, such as Jenks, to automatically define natural breaks for you. However, I think separating this gives more flexibility. Pre-defining the palette with breaks makes it so that you can incorporate more complexity into it. There were many arguments that I could include in the colorBin function that may not have run as smoothly if I tried to use them in the geometry while using tmap.
+
 
 ---
 
@@ -112,7 +156,34 @@ Go back to your Lab 3 code. Reload the spatial data and rerun the Moran/LISA ana
 *Note: You need both the quadrant labels and the p-values — make sure both are columns in `counties_lisa` before proceeding.*
 
 ```{r task2_data, echo=TRUE, message=TRUE}
-# your code here
+sex.by.age <- get_acs(geography = "county", table = "B01001", output = "wide", geometry = T, year = 2020)
+
+local.states <- sex.by.age %>% mutate(., STATEID = stringr::str_sub(GEOID,1,2)) %>% dplyr::filter(STATEID %in% c("39","42","24","54","51")) %>% sf::st_transform(., "ESRI:102010")
+
+
+#maping proportion of 21 year old females to total female population
+#normalizing
+local.states2 <- local.states %>% mutate(., f21prop = B01001_033E/B01001_026E)
+
+#Developing contiguity-based spatial weights matrix (queen)
+#row-standardize the W
+nbh <- spdep::poly2nb(local.states2, queen = TRUE)
+w <- spdep::nb2listw(nbh, style = "W", zero.policy = TRUE)
+
+#make Moran plot
+moran.plot(local.states2$f21prop, w, zero.policy = TRUE, plot = TRUE)
+
+lisa <- localmoran(local.states2$f21prop, w, zero.policy = TRUE)
+
+
+
+counties_lisa <- sf::st_transform(local.states2, 4326)
+
+counties_lisa$quadrant <- ??????
+counties_lisa$pval <- lisa[,5]
+
+
+
 ```
 
 ### 2.2 — Define a categorical color palette
@@ -120,9 +191,9 @@ Go back to your Lab 3 code. Reload the spatial data and rerun the Moran/LISA ana
 LISA quadrants are a categorical variable (four classes). Use `colorFactor()` instead of `colorBin()`. Assign a distinct, meaningful color to each quadrant (HH, HL, LH, LL). A common convention is warm colors for High clusters and cool colors for Low clusters.
 
 ```{r task2_palette, echo=TRUE, message=TRUE}
-# your code here
-# example structure:
-# pal_lisa <- colorFactor(palette = c(...), levels = c("HH", "HL", "LH", "LL"))
+
+pal_lisa <- colorFactor(palette = c("red2","orange","lightgreen","blueviolet"), levels = c("HH", "HL", "LH", "LL"))
+
 ```
 
 ### 2.3 — Build the LISA map
@@ -135,7 +206,40 @@ Build the Leaflet map with the following requirements:
 - A legend
 
 ```{r task2_map, echo=TRUE, message=TRUE}
-# your code here
+
+NOT REALLY STARTED
+
+leaflet(counties_lisa) %>%
+  addProviderTiles(providers$Esri.NatGeoWorldMap) %>%
+  addPolygons(
+    fillColor   = ~quad_pal(quad_sig),
+    fillOpacity = 0.8,
+    color       = "white",
+    weight      = 1,
+    popup       = ~popup_lisa,
+    highlightOptions = highlightOptions(
+      weight       = 2,
+      color        = "#333",
+      fillOpacity  = 0.9,
+      bringToFront = TRUE
+    )) %>% addLegend(
+    position = "bottomright",
+    title    = "LISA Quadrant",
+    colors   = unname(quad_colors),
+    labels   = c("HH – High-High (cluster)",
+                 "HL – High-Low (outlier)",
+                 "LH – Low-High (outlier)",
+                 "LL – Low-Low (cluster)",
+                 "NS – Not Significant"),
+    opacity  = 0.9) %>%
+  addProviderTiles(providers$Esri.NatGeoWorldMap,
+                   group = "NatGeo World Map")  %>% 
+  addProviderTiles(providers$Esri.WorldImagery,
+                   group = "Satellite View") %>%
+  addLayersControl(
+    baseGroups = c("NatGeo World Map", "Satellite View"))
+
+
 ```
 
 *Tip: The `addLayersControl()` function accepts `baseGroups` (radio buttons, one active at a time) and `overlayGroups` (checkboxes, multiple can be active). Basemaps should be `baseGroups`.*
@@ -144,7 +248,7 @@ Build the Leaflet map with the following requirements:
 
 ---
 
-## Task 3: Free-form map from Lab 4
+## Task 3: Free-form map from Lab 5
 
 *Reference: leaflet docs — `addLayersControl()` with overlayGroups, your choice of other features*
 
@@ -157,10 +261,28 @@ In Lab 5, Task 5, you created an original map combining vector and raster data, 
 Reload the data you used in your original free-form map. Reproject all layers to WGS 84 (EPSG 4326). List the layers you are using in a comment.
 
 ```{r task3_data, echo=TRUE, message=TRUE}
-# your code here
 # layers I'm using:
-#  - [social layer]: ...
-#  - [environmental layer]: ...
+#  - [social layer]: population (normalized by area)
+#  - [environmental layer]: land cover
+
+#read in ohio data
+ohio_counties <- sf::read_sf("./data/static_mapping/oh_counties.gpkg") %>% sf::st_transform(., 4326)
+ohio_census <- sf::read_sf("./data/static_mapping/oh_counties_DP2020.csv")
+
+#join the data
+county_join <- left_join(ohio_counties, ohio_census, join_by("GEOIDFQ"  == "geoid"))
+
+#make a column for the proportion of population count normalized by the are of land in the county
+county_pop <- county_join %>% mutate(pop_per_area = as.numeric(poptotal) / (ALAND))
+
+#subset data to the northeastern region of ohio
+northeast_oh <- county_pop %>% dplyr::filter(NAME %in% c("Portage", "Summit", "Ashtabula", "Lake", "Geauga", "Trumbull", "Cuyahoga", "Mahoning", "Stark", "Lorain", "Medina", "Wayne", "Columbiana"))
+
+#read in raster data to look at land cover, project it to be the same crs as the ohio data, and crop it to the northeastern ohio data
+land_cover <- terra::rast("./data/ohio/neoh_nlcd.tif") %>% as.polygons() %>% terra::project(., sf::st_crs(county_pop)$wkt) %>% terra::crop(., northeast_oh)
+tm_shape(land_cover) + tm_polygons()
+
+
 ```
 
 ### 3.2 — Build the interactive map
@@ -181,7 +303,100 @@ Build the Leaflet map with the following requirements:
 Document your "one thing" choice in a comment explaining what it is and why it fits your map.
 
 ```{r task3_map, echo=TRUE, message=TRUE}
-# your code here
+
+
+#made choropleth map to show ohio county populations per land area in northeastern ohio
+pop_map <- tm_shape(northeast_oh) + tm_polygons(fill = "pop_per_area", fill.scale = tm_scale_intervals(style = "jenks", values = "brewer.purples", n = 5), fill.legend = tm_legend(title = "Total Population per unit of Land Area")) + tm_borders(lwd = 2, col = "black") + tm_scalebar(position = c("right", "bottom"))
+pop_map
+
+#map the raster land cover data for northeastern ohio
+lc_map <- tm_shape(land_cover) +
+  tm_raster(col.scale = tm_scale_continuous(values = "terrain")) +
+  tm_shape(northeast_oh) + tm_borders(lwd = 2, col = "black")
+lc_map
+
+
+# defining breaks and palette 
+min(northeast_oh$pop_per_area, na.rm = TRUE)
+max(northeast_oh$pop_per_area, na.rm = TRUE)
+
+breaks3 <- seq(min(5.363412e-05), max(0.001068102), length.out = 6)
+
+pal <- colorBin(palette = "Purples", domain = northeast_oh$pop_per_area, bins = breaks3)
+
+#map
+leaflet(northeast_oh) %>%
+  addProviderTiles(providers$Esri.NatGeoWorldMap) %>%
+  addPolygons(group = "Population Map",
+      fillColor = ~pal(pop_per_area),
+      fillOpacity = 0.9,
+      color = "black",    
+      weight = 1,
+      options = pathOptions(pane = "choropleth")) %>%
+  
+  
+
+  
+  
+  
+   addPolygons(
+    group= "Land Cover Map",
+    fillColor   = ~color,
+    fillOpacity = 0.9,
+    color       = "black",
+    weight      = 2,
+    popup       = ~popup_lisa,
+    highlightOptions = highlightOptions(
+      weight       = 2,
+      fillOpacity  = 0.9,
+      bringToFront = TRUE
+    )) 
+
+
+
+
+leaflet(county_wgs) %>%
+  addMapPane("choropleth", zIndex = 410) %>% #ranking which one comes first
+  addMapPane("lisa",     zIndex = 420) %>%
+  addProviderTiles(providers$Esri.NatGeoWorldMap,
+                   group = "NatGeo World Map")  %>% #base map 1
+  addProviderTiles(providers$Esri.WorldImagery,
+                   group = "Satellite View")  %>% #base map 2
+  setView(lng = -81.34, lat = 41.145, zoom = 6) %>% #SetView window and zoom
+  addPolygons( #start with choropleth map
+    group = "Choropleth Map",
+      fillColor = ~pal_purple(prop_amindianat),#purple palette and native american proportion
+      fillOpacity = 0.9,
+      color = "black",    
+      weight = 1,
+      options = pathOptions(pane = "choropleth")
+  ) 
+%>%
+  addPolygons( #LISA quadrant map
+    group= "LISA Quadrant",
+    fillColor   = ~color,
+    fillOpacity = 0.9,
+    color       = "black",
+    weight      = 2,
+    popup       = ~popup_lisa,
+    highlightOptions = highlightOptions(
+      weight       = 2,
+      fillOpacity  = 0.9,
+      bringToFront = TRUE
+    )) 
+%>%
+  addLegend( #legend for the other choropleth
+  position = "bottomright",
+  title    = "Native American Population Proportions",
+  pal   = pal_purple,
+  values   = ~prop_amindianat,
+  opacity  = 1) 
+%>%
+  addLayersControl(
+    baseGroups = c("NatGeo World Map", "Satellite View"), 
+    overlayGroups = c("Choropleth Map", "LISA Quadrant"), 
+    options = layersControlOptions(collapsed = FALSE))
+
 
 # My "one thing": [describe what you added and why it's applicable]
 ```
