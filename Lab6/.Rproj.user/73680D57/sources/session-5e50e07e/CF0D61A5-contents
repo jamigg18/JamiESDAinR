@@ -46,7 +46,6 @@ library(leaflet)
 library(tidyverse)
 library(spdep)   # needed for Task 2 (Moran/LISA)
 library(tidycensus) #for task 2
-library(rgeoda) #for finding lisa p-vals
 library(terra) #for task 3
 
 ```
@@ -175,14 +174,23 @@ moran.plot(local.states2$f21prop, w, zero.policy = TRUE, plot = TRUE)
 
 lisa <- localmoran(local.states2$f21prop, w, zero.policy = TRUE)
 
-
-
 counties_lisa <- sf::st_transform(local.states2, 4326)
 
-counties_lisa$quadrant <- ??????
 counties_lisa$pval <- lisa[,5]
 
+x <- counties_lisa$f21prop
+wx <- lag.listw(w, x, zero.policy = TRUE)
+xm <- mean(x)
+wxm <- mean(wx)
 
+counties_lisa$quadrant <- case_when(
+  x>xm & wx>wxm ~"HH", 
+  x<xm & wx<wxm ~"LL",
+  x<xm & wx>wxm ~"LH", 
+  x>xm & wx<wxm ~"HL", 
+)
+
+glimpse(counties_lisa)
 
 ```
 
@@ -207,38 +215,22 @@ Build the Leaflet map with the following requirements:
 
 ```{r task2_map, echo=TRUE, message=TRUE}
 
-NOT REALLY STARTED
-
 leaflet(counties_lisa) %>%
-  addProviderTiles(providers$Esri.NatGeoWorldMap) %>%
   addPolygons(
-    fillColor   = ~quad_pal(quad_sig),
+    fillColor   = ~pal_lisa(quadrant),
     fillOpacity = 0.8,
-    color       = "white",
+    color       = "black",
     weight      = 1,
-    popup       = ~popup_lisa,
-    highlightOptions = highlightOptions(
-      weight       = 2,
-      color        = "#333",
-      fillOpacity  = 0.9,
-      bringToFront = TRUE
-    )) %>% addLegend(
-    position = "bottomright",
-    title    = "LISA Quadrant",
-    colors   = unname(quad_colors),
-    labels   = c("HH – High-High (cluster)",
-                 "HL – High-Low (outlier)",
-                 "LH – Low-High (outlier)",
-                 "LL – Low-Low (cluster)",
-                 "NS – Not Significant"),
-    opacity  = 0.9) %>%
+    popup = ~paste0(sprintf("%.3f", pval))) %>%
+  addLegend(position = "topright", pal = pal_lisa, values = counties_lisa$quadrant, title = "Moran's I Quadrant")  %>%
   addProviderTiles(providers$Esri.NatGeoWorldMap,
                    group = "NatGeo World Map")  %>% 
   addProviderTiles(providers$Esri.WorldImagery,
                    group = "Satellite View") %>%
+  addProviderTiles(providers$CartoDB.Voyager,
+                   group = "CartoDB Voyager") %>%
   addLayersControl(
-    baseGroups = c("NatGeo World Map", "Satellite View"))
-
+    baseGroups = c("NatGeo World Map", "Satellite View", "CartoDB Voyager"))
 
 ```
 
