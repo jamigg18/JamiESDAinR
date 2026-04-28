@@ -46,7 +46,6 @@ library(leaflet)
 library(tidyverse)
 library(spdep)   # needed for Task 2 (Moran/LISA)
 library(tidycensus) #for task 2
-library(rgeoda) #for finding lisa p-vals
 library(terra) #for task 3
 
 ```
@@ -175,12 +174,9 @@ moran.plot(local.states2$f21prop, w, zero.policy = TRUE, plot = TRUE)
 
 lisa <- localmoran(local.states2$f21prop, w, zero.policy = TRUE)
 
-
-
 counties_lisa <- sf::st_transform(local.states2, 4326)
 
 counties_lisa$pval <- lisa[,5]
-counties_lisa$significant <- counties_lisa$pval <= 0.05
 
 x <- counties_lisa$f21prop
 wx <- lag.listw(w, x, zero.policy = TRUE)
@@ -242,6 +238,9 @@ leaflet(counties_lisa) %>%
 
 **Reflection question 2 (answer in your repo):** Compare the static LISA map you made in Lab 3 to this interactive version. What does interactivity add? Are there things the static map communicates more clearly? Consider map reading purpose (exploration vs. communication) in your answer.
 
+I did not do the bonus in lab 3, but the interactivity here adds the ability to see the p-value popups directly from the map. This makes it much easier to analyze without having to go back to the data frame to match p-values. I can't think of anything that the static map could show more clearly than what is in the interactive map. The interactive map is better for analyzing the data, whereas the static map's purpose would be to communicate the data. I think ones the data is only being shared, the static map is sufficient and the interactivity may only cause confusion or be unnecessary.
+
+
 ---
 
 ## Task 3: Free-form map from Lab 5
@@ -274,9 +273,8 @@ county_pop <- county_join %>% mutate(pop_per_area = as.numeric(poptotal) / (ALAN
 #subset data to the northeastern region of ohio
 northeast_oh <- county_pop %>% dplyr::filter(NAME %in% c("Portage", "Summit", "Ashtabula", "Lake", "Geauga", "Trumbull", "Cuyahoga", "Mahoning", "Stark", "Lorain", "Medina", "Wayne", "Columbiana"))
 
-#read in raster data to look at land cover, project it to be the same crs as the ohio data, and crop it to the northeastern ohio data
-land_cover <- terra::rast("./data/ohio/neoh_nlcd.tif") %>% as.polygons() %>% terra::project(., sf::st_crs(county_pop)$wkt) %>% terra::crop(., northeast_oh)
-tm_shape(land_cover) + tm_polygons()
+#read in raster data to look at land cover, project it to be the same crs as the ohio data, and crop it to the northeastern ohio data, and decreasing resolution
+land_cover <- terra::rast("./data/ohio/neoh_nlcd.tif") %>% terra::project(., sf::st_crs(county_pop)$wkt) %>% terra::crop(., northeast_oh) %>% terra::aggregate(., 5, fun = mean)
 
 
 ```
@@ -300,19 +298,7 @@ Document your "one thing" choice in a comment explaining what it is and why it f
 
 ```{r task3_map, echo=TRUE, message=TRUE}
 
-
-#made choropleth map to show ohio county populations per land area in northeastern ohio
-pop_map <- tm_shape(northeast_oh) + tm_polygons(fill = "pop_per_area", fill.scale = tm_scale_intervals(style = "jenks", values = "brewer.purples", n = 5), fill.legend = tm_legend(title = "Total Population per unit of Land Area")) + tm_borders(lwd = 2, col = "black") + tm_scalebar(position = c("right", "bottom"))
-pop_map
-
-#map the raster land cover data for northeastern ohio
-lc_map <- tm_shape(land_cover) +
-  tm_raster(col.scale = tm_scale_continuous(values = "terrain")) +
-  tm_shape(northeast_oh) + tm_borders(lwd = 2, col = "black")
-lc_map
-
-
-# defining breaks and palette 
+# defining breaks and palettes
 min(northeast_oh$pop_per_area, na.rm = TRUE)
 max(northeast_oh$pop_per_area, na.rm = TRUE)
 
@@ -320,84 +306,30 @@ breaks3 <- seq(min(5.363412e-05), max(0.001068102), length.out = 6)
 
 pal <- colorBin(palette = "Purples", domain = northeast_oh$pop_per_area, bins = breaks3)
 
+palLC <- colorNumeric(palette = "viridis",
+  domain = values(land_cover), na.color = "transparent")
+
 #map
-leaflet(northeast_oh) %>%
-  addProviderTiles(providers$Esri.NatGeoWorldMap) %>%
-  addPolygons(group = "Population Map",
-      fillColor = ~pal(pop_per_area),
-      fillOpacity = 0.9,
-      color = "black",    
-      weight = 1,
-      options = pathOptions(pane = "choropleth")) %>%
-  
-  
 
-  
-  
-  
-   addPolygons(
-    group= "Land Cover Map",
-    fillColor   = ~color,
-    fillOpacity = 0.9,
-    color       = "black",
-    weight      = 2,
-    popup       = ~popup_lisa,
-    highlightOptions = highlightOptions(
-      weight       = 2,
-      fillOpacity  = 0.9,
-      bringToFront = TRUE
-    )) 
-
-
-
-
-leaflet(county_wgs) %>%
-  addMapPane("choropleth", zIndex = 410) %>% #ranking which one comes first
-  addMapPane("lisa",     zIndex = 420) %>%
-  addProviderTiles(providers$Esri.NatGeoWorldMap,
-                   group = "NatGeo World Map")  %>% #base map 1
-  addProviderTiles(providers$Esri.WorldImagery,
-                   group = "Satellite View")  %>% #base map 2
-  setView(lng = -81.34, lat = 41.145, zoom = 6) %>% #SetView window and zoom
-  addPolygons( #start with choropleth map
-    group = "Choropleth Map",
-      fillColor = ~pal_purple(prop_amindianat),#purple palette and native american proportion
-      fillOpacity = 0.9,
-      color = "black",    
-      weight = 1,
-      options = pathOptions(pane = "choropleth")
-  ) 
-%>%
-  addPolygons( #LISA quadrant map
-    group= "LISA Quadrant",
-    fillColor   = ~color,
-    fillOpacity = 0.9,
-    color       = "black",
-    weight      = 2,
-    popup       = ~popup_lisa,
-    highlightOptions = highlightOptions(
-      weight       = 2,
-      fillOpacity  = 0.9,
-      bringToFront = TRUE
-    )) 
-%>%
-  addLegend( #legend for the other choropleth
-  position = "bottomright",
-  title    = "Native American Population Proportions",
-  pal   = pal_purple,
-  values   = ~prop_amindianat,
-  opacity  = 1) 
-%>%
+leaflet() %>% 
+  setView(lng = -80.0, lat = 41.4, zoom = 7) %>% 
+  addTiles() %>%
+  addPolygons(data = northeast_oh, group = "Population Map",
+      fillColor = ~pal(pop_per_area), 
+      weight = 1, color = "black", fillOpacity = 0.8,
+      popup       = ~paste0("Population per unit of area: ", northeast_oh$pop_per_area)) %>%      
+  addRasterImage(land_cover, group = "Land Cover Map",
+      colors = palLC, opacity = 0.8) %>%
   addLayersControl(
-    baseGroups = c("NatGeo World Map", "Satellite View"), 
-    overlayGroups = c("Choropleth Map", "LISA Quadrant"), 
+    overlayGroups = c("Population Map", "Land Cover Map"), 
     options = layersControlOptions(collapsed = FALSE))
 
-
-# My "one thing": [describe what you added and why it's applicable]
+# My "one thing": I added a popup showing the total population divided by area
 ```
 
 **Reflection question 3 (answer in your repo):** Describe the one extra feature you added and justify why it is meaningful for your specific map — not just technically interesting, but cartographically or analytically useful for the story you are trying to tell.
+
+Originally I wanted to show a legend for the population choropleth map, but it did not provide much information due to the values being very small decimals from the method of normalization. Therefore, to be able to show the values, I made them a popup so that people can compare the population density in each county and then switch to look at the land cover map.
 
 ---
 
