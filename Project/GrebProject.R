@@ -26,7 +26,9 @@ dam.removals <- dam.removal.8911 %>% dplyr::filter(., DamRemoval > 2005)
 
 
 #exploratory analysis
-pre_hist <- health.pre06 %>% ggplot(.,aes(x = Rating)) +
+order <- c("excellent", "good", "fair", "poor", "very_poor")
+
+pre_hist <- health.pre06 %>% ggplot(.,aes(x = factor(Rating, order))) +
   geom_bar(fill = "purple4", na.rm = TRUE) +
   theme_classic() +
   labs(title = "Stream Health Ratings 2000-2005", 
@@ -34,7 +36,7 @@ pre_hist <- health.pre06 %>% ggplot(.,aes(x = Rating)) +
        x = "Quality Rating",
        y = "Count")
 pre_hist
-post_hist <- health.post11 %>% ggplot(.,aes(x = Rating)) +
+post_hist <- health.post11 %>% ggplot(.,aes(x = factor(Rating, order))) +
   geom_bar(fill = "purple4", na.rm = TRUE) +
   theme_classic() +
   labs(title = "Stream Health Ratings 2012-2017", 
@@ -46,7 +48,6 @@ library(gridExtra)
 grid.arrange(pre_hist, post_hist, ncol=1)
 
 hist(dam.removals$DamRemoval)
-
 
 
 
