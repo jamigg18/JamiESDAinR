@@ -394,7 +394,8 @@ library(leafsync)
 
 sync(lisa_map, choro)
 
-# looking at maps side-by-side like this can provide a similar benefit to toggling between maps, but without having to click back and forth. The special thing about this is that when you zoom on one side, it zooms on the other and this can help the observer find patterns more quickly. For example, looking at the underlying variable map on the left, my eye goes to the biggest polygon with the darkest pink. I can zoom in, or hover my mouse over this county, and very quickly see which LISA quadrant this county was.
-
 
 ```
+
+Looking at maps side-by-side like this can provide a similar benefit to toggling between maps, but without having to click back and forth. The special thing about this is that when you zoom on one side, it zooms on the other and this can help the observer find patterns more quickly. For example, looking at the underlying variable map on the left, my eye goes to the biggest polygon with the darkest pink. I can zoom in, or hover my mouse over this county, and very quickly see which LISA quadrant this county was.
+
